@@ -105,8 +105,9 @@ jobs:
 
     - name: Test custom project directory
       run: |
-        ./mkdockerize.sh produce test-project
+        ./mkdockerize.sh produce test-project > site.tar.gz
         ls -la site.tar.gz
+        echo "✓ Custom project directory test completed"
 
     - name: Test script error handling
       run: |
