@@ -67,11 +67,13 @@ jobs:
 
     - name: Test tar.gz content
       run: |
-        tar -tzf site.tar.gz
         if ! tar -tzf site.tar.gz | grep -q "index.html"; then
           echo "Error: No index.html found in generated site"
+          echo "Contents of site.tar.gz:"
+          tar -tzf site.tar.gz
           exit 1
         fi
+        echo "✓ index.html found in generated site"
 
     - name: Test serve command (background)
       run: |

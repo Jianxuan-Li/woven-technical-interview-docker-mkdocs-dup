@@ -6,8 +6,8 @@ DOCKER_IMAGE="mkdocs-docker"
 
 ensure_docker_image() {
     if ! docker image inspect "$DOCKER_IMAGE" >/dev/null 2>&1; then
-        echo "Building Docker image '$DOCKER_IMAGE'..."
-        docker build -t "$DOCKER_IMAGE" "$(dirname "$0")"
+        echo "Building Docker image '$DOCKER_IMAGE'..." >&2
+        docker build -t "$DOCKER_IMAGE" "$(dirname "$0")" >&2
     fi
 }
 
