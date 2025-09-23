@@ -1,0 +1,101 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build Docker image
+      run: docker build -t mkdocs-docker .
+
+    - name: Verify Docker image
+      run: docker images mkdocs-docker
+
+    - name: Make script executable
+      run: chmod +x mkdockerize.sh
+
+    - name: Test Docker image basic functionality
+      run: |
+        # Test that the container shows usage when run without valid command
+        if docker run --rm mkdocs-docker 2>&1 | grep -q "Usage:"; then
+          echo "Docker container responding correctly"
+        else
+          echo "Error: Container not responding as expected"
+          exit 1
+        fi
+
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Make script executable
+      run: chmod +x mkdockerize.sh
+
+    - name: Test produce command
+      run: |
+        ./mkdockerize.sh produce
+        ls -la site.tar.gz
+
+    - name: Test produce output size
+      run: |
+        SIZE=$(stat -c%s site.tar.gz)
+        if [ $SIZE -lt 1000 ]; then
+          echo "Error: Generated site.tar.gz too small ($SIZE bytes)"
+          exit 1
+        fi
+        echo "Generated site.tar.gz size: $SIZE bytes"
+
+    - name: Test tar.gz content
+      run: |
+        tar -tzf site.tar.gz | head -10
+        if ! tar -tzf site.tar.gz | grep -q "index.html"; then
+          echo "Error: No index.html found in generated site"
+          exit 1
+        fi
+
+    - name: Test serve command (background)
+      run: |
+        timeout 30s ./mkdockerize.sh serve &
+        SERVE_PID=$!
+        sleep 10
+
+        # Test if server is responding
+        if curl -f http://localhost:8000/ >/dev/null 2>&1; then
+          echo "Server is responding correctly"
+        else
+          echo "Error: Server not responding"
+          kill $SERVE_PID 2>/dev/null || true
+          exit 1
+        fi
+
+        kill $SERVE_PID 2>/dev/null || true
+
+    - name: Test custom project directory
+      run: |
+        ./mkdockerize.sh produce test-project
+        ls -la site.tar.gz
+
+    - name: Test script error handling
+      run: |
+        # Test with non-existent directory
+        if ./mkdockerize.sh produce nonexistent-dir 2>/dev/null; then
+          echo "Error: Script should fail with non-existent directory"
+          exit 1
+        fi
+        echo "Error handling test passed"
