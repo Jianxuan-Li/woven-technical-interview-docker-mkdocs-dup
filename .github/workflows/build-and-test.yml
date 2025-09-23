@@ -49,8 +49,12 @@ jobs:
 
     - name: Test produce command
       run: |
-        ./mkdockerize.sh produce
-        ls -la site.tar.gz
+        ./mkdockerize.sh produce > site.tar.gz
+        ls -lah site.tar.gz
+        if [ ! -f site.tar.gz ]; then
+          echo "Error: site.tar.gz not created"
+          exit 1
+        fi
 
     - name: Test produce output size
       run: |
