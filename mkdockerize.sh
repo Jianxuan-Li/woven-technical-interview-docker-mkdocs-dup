@@ -62,23 +62,24 @@ handle_serve() {
     # Add signal handling for graceful shutdown
     trap 'echo "Stopping container..."; docker stop $(docker ps -q --filter ancestor="$DOCKER_IMAGE") 2>/dev/null || true; exit 0' SIGTERM SIGINT
 
-    # Check if input is coming from stdin or use default file
-    if [ -t 0 ]; then
-        # No stdin input, use default file
-        local default_file="site.tar.gz"
-        if [ ! -f "$default_file" ]; then
-            echo "Error: No stdin input and default file '$default_file' not found" >&2
-            echo "Please either:" >&2
-            echo "  1. Pipe input: cat site.tar.gz | $0 serve" >&2
-            echo "  2. Create site.tar.gz by running: $0 produce" >&2
-            exit 1
-        fi
+    local default_file="site.tar.gz"
 
-        echo "No stdin input detected, using default file: $default_file" >&2
+    # Priority: 1. Use default file if it exists, 2. Try stdin only if no default file
+    if [ -f "$default_file" ]; then
+        # Default file exists - always use it for consistency
+        echo "Using default file: $default_file" >&2
         docker run --rm -i -p 8000:8000 --init "$DOCKER_IMAGE" serve < "$default_file"
-    else
-        # Read from stdin
+    elif [ ! -t 0 ]; then
+        # No default file, but stdin is not a terminal (piped/redirected)
+        echo "Reading tar.gz from stdin..." >&2
         docker run --rm -i -p 8000:8000 --init "$DOCKER_IMAGE" serve
+    else
+        # No default file and interactive terminal
+        echo "Error: Default file '$default_file' not found" >&2
+        echo "Please either:" >&2
+        echo "  1. Pipe input: cat site.tar.gz | $0 serve" >&2
+        echo "  2. Create site.tar.gz by running: $0 produce" >&2
+        exit 1
     fi
 }
 

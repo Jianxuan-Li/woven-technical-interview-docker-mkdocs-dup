@@ -77,15 +77,26 @@ jobs:
 
     - name: Test serve command (background)
       run: |
-        timeout 30s ./mkdockerize.sh serve &
+        # Start serve in background using nohup to properly detach
+        nohup timeout 30s ./mkdockerize.sh serve > serve.log 2>&1 &
         SERVE_PID=$!
-        sleep 10
+        sleep 15
+
+        # Check serve log for errors
+        if [ -f serve.log ]; then
+          echo "Serve log output:"
+          cat serve.log
+        fi
 
         # Test if server is responding
         if curl -f http://localhost:8000/ >/dev/null 2>&1; then
           echo "Server is responding correctly"
         else
           echo "Error: Server not responding"
+          echo "Checking if Docker container is running:"
+          docker ps
+          echo "Checking Docker logs:"
+          docker logs $(docker ps -q --filter ancestor=mkdocs-docker) 2>/dev/null || echo "No Docker container found"
           kill $SERVE_PID 2>/dev/null || true
           exit 1
         fi
