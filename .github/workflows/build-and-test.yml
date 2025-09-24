@@ -135,8 +135,8 @@ jobs:
         echo "Files before serve test:"
         ls -la *.tar.gz
 
-        # Start serve in background using a subshell with proper terminal simulation
-        (timeout 30s ./mkdockerize.sh serve) > serve.log 2>&1 &
+        # Start serve in background in a way that preserves terminal stdin
+        script -q -c "timeout 30s ./mkdockerize.sh serve" serve.log &
         SERVE_PID=$!
         sleep 15
 
