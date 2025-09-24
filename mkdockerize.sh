@@ -11,6 +11,19 @@ ensure_docker_image() {
     fi
 }
 
+read_first_tar_gz_file_from_current_dir() {
+    # Find the first .tar.gz file in the current directory
+    local tar_file
+    tar_file=$(find . -maxdepth 1 -name "*.tar.gz" -type f | head -n1)
+
+    if [ -n "$tar_file" ]; then
+        echo "$tar_file"
+        return 0
+    else
+        return 1
+    fi
+}
+
 handle_produce() {
     local mkdocs_dir="$1"
     local output_file="$2"
@@ -63,22 +76,28 @@ handle_serve() {
     trap 'echo "Stopping container..."; docker stop $(docker ps -q --filter ancestor="$DOCKER_IMAGE") 2>/dev/null || true; exit 0' SIGTERM SIGINT
 
     local default_file="site.tar.gz"
+    local tar_file
 
-    # Priority: 1. Use default file if it exists, 2. Try stdin only if no default file
-    if [ -f "$default_file" ]; then
-        # Default file exists - always use it for consistency
-        echo "Using default file: $default_file" >&2
-        docker run --rm -i -p 8000:8000 --init "$DOCKER_IMAGE" serve < "$default_file"
-    elif [ ! -t 0 ]; then
-        # No default file, but stdin is not a terminal (piped/redirected)
+    # Priority: 1. stdin (if available), 2. Use default file, 3. Use any .tar.gz file
+    if [ ! -t 0 ]; then
+        # stdin is not a terminal (piped/redirected) - highest priority
         echo "Reading tar.gz from stdin..." >&2
         docker run --rm -i -p 8000:8000 --init "$DOCKER_IMAGE" serve
+    elif [ -f "$default_file" ]; then
+        # Default file exists
+        echo "Using default file: $default_file" >&2
+        docker run --rm -i -p 8000:8000 --init "$DOCKER_IMAGE" serve < "$default_file"
+    elif tar_file=$(read_first_tar_gz_file_from_current_dir); then
+        # Found a .tar.gz file in current directory
+        echo "Using first tar.gz file found: $tar_file" >&2
+        docker run --rm -i -p 8000:8000 --init "$DOCKER_IMAGE" serve < "$tar_file"
     else
-        # No default file and interactive terminal
-        echo "Error: Default file '$default_file' not found" >&2
+        # No input source found
+        echo "Error: No tar.gz input source found" >&2
         echo "Please either:" >&2
         echo "  1. Pipe input: cat site.tar.gz | $0 serve" >&2
         echo "  2. Create site.tar.gz by running: $0 produce" >&2
+        echo "  3. Ensure a .tar.gz file exists in the current directory" >&2
         exit 1
     fi
 }
@@ -94,12 +113,14 @@ usage() {
     echo "Commands:"
     echo "  produce [mkdocs_project_dir]  Build MkDocs site and output tar.gz to stdout"
     echo "                                (defaults to test-project if not specified)"
-    echo "  serve                         Read tar.gz from stdin or default site.tar.gz file"
+    echo "  serve                         Read tar.gz from stdin (priority), site.tar.gz, or any .tar.gz file"
     echo "  rebuild                       Rebuild the Docker image"
     echo ""
     echo "Examples:"
     echo "  $0 produce                           # Use default test-project, save to site.tar.gz"
+    echo "  $0 produce my-mkdocs-dir > site.tar.gz # Build from specified dir, save to file"
     echo "  $0 serve                             # Serve from default site.tar.gz file"
+    echo "  $0 serve < site.tar.gz               # Serve from piped input"
     echo "  $0 produce && $0 serve               # Build then serve"
     echo "  $0 produce | $0 serve               # Build and serve directly"
     echo "  cat site.tar.gz | $0 serve          # Serve from piped input"
