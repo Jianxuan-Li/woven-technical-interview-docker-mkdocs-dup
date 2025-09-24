@@ -5,7 +5,7 @@ Woven technical challenge: A Docker-based tool that encapsulates MkDocs to produ
 ## Requirements
 
 - **Docker**: Must be installed and running on your system
-- **MkDocs Project**: A valid MkDocs project directory containing `mkdocs.yml`
+- **MkDocs Project**: A valid MkDocs project directory containing `mkdocs.yml` (there is a demo inside `test-project`)
 
 ## Installation
 
@@ -67,6 +67,7 @@ Then open http://localhost:8000 in your browser.
 - **Behavior**:
   - If stdin available: reads tar.gz from pipe
   - If no stdin: uses `site.tar.gz` file
+  - If no `site.tar.gz` file, it uses the first `.tar.gz` file
   - Press Ctrl+C to stop the server
 
 **Examples:**
