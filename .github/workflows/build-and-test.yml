@@ -126,8 +126,17 @@ jobs:
 
     - name: Test serve command (background)
       run: |
-        # Start serve in background using nohup to properly detach
-        nohup timeout 30s ./mkdockerize.sh serve > serve.log 2>&1 &
+        # Ensure site.tar.gz exists before testing serve (regenerate if needed)
+        if [ ! -f site.tar.gz ]; then
+          echo "site.tar.gz not found, regenerating for serve test..."
+          ./mkdockerize.sh produce ./test-project > site.tar.gz
+        fi
+
+        echo "Files before serve test:"
+        ls -la *.tar.gz
+
+        # Start serve in background using a subshell with proper terminal simulation
+        (timeout 30s ./mkdockerize.sh serve) > serve.log 2>&1 &
         SERVE_PID=$!
         sleep 15
 
